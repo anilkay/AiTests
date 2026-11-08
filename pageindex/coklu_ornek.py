@@ -6,6 +6,7 @@ Kurulum:
 Kullanım:
     python coklu_ornek.py a.pdf b.pdf c.pdf
     python coklu_ornek.py a.pdf b.pdf --model ollama   # tamamen yerel (Ollama)
+    python coklu_ornek.py a.pdf b.pdf --sohbet         # sonunda tüm belgeler üzerinde sohbet
 
 İndeksleme: gpt-oss:20b (Ollama). Cevap: Claude Opus (claude-code) veya --model ollama ile gpt-oss.
 Her dosya için ayrı submit_document çağrısı yapılır; doc_id listesi chat()'e verilir.
@@ -27,11 +28,36 @@ def make_client(model: str, storage: str) -> PageIndexClient:
     return PageIndexClient(index=index, chat=chat)
 
 
+def sohbet(client: PageIndexClient, doc_ids: list) -> None:
+    """Tüm belgeler üzerinde çok turlu sohbet. Geçmiş mesaj listesi olarak her çağrıda
+    tekrar gönderilir; bu yüzden "peki ikincisinde?" gibi takip soruları çalışır."""
+    history = []
+    print("\nSohbet (tüm belgeler). Çıkmak için boş satır.")
+    while True:
+        try:
+            q = input("\n> ").strip()
+        except EOFError:
+            break
+        if not q:
+            break
+        history.append({"role": "user", "content": q})
+        t = time.time()
+        answer = ""
+        # stream=True: cevap yazıldıkça gelir. show_process=False: sadece cevap metni.
+        for chunk in client.chat(history, doc_id=doc_ids, stream=True, show_process=False):
+            if isinstance(chunk, str):
+                print(chunk, end="", flush=True)
+                answer += chunk
+        print(f"\n[{time.time() - t:.1f} sn]")
+        history.append({"role": "assistant", "content": answer})
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pdfs", nargs="+")
     ap.add_argument("--model", choices=["claude", "ollama"], default="claude")
     ap.add_argument("--storage", default=".pageindex_coklu")
+    ap.add_argument("--sohbet", action="store_true", help="sonunda etkileşimli sohbet başlat")
     args = ap.parse_args()
 
     client = make_client(args.model, args.storage)
@@ -59,6 +85,10 @@ def main():
         q2 = "Her belge neyle ilgili? Belge adını belirterek birer cümleyle yaz."
         print(f"\nSORU (tüm belgeler): {q2}")
         print(client.chat(q2, doc_id=doc_ids))
+
+    # 5) İstenirse çok turlu sohbet
+    if args.sohbet:
+        sohbet(client, doc_ids)
 
 
 if __name__ == "__main__":

@@ -46,10 +46,12 @@ python ornek.py belge.pdf
 ```bash
 python coklu_ornek.py a.pdf b.pdf c.pdf                 # indeksleme gpt-oss, cevap Claude Opus
 python coklu_ornek.py a.pdf b.pdf --model ollama        # tamamen yerel
+python coklu_ornek.py a.pdf b.pdf --sohbet              # sonunda tüm belgeler üzerinde sohbet
 ```
 
 - Her dosya için ayrı `submit_document()` çağrısı yapılır, her biri kendi `doc_id`'sini alır.
 - `chat(..., doc_id="...")` tek belgeye, `chat(..., doc_id=[id1, id2])` listedeki tüm belgelere sorar.
+- `--sohbet` ile tüm belgeler üzerinde çok turlu, akışlı sohbet başlar. Geçmiş mesaj listesi her çağrıda `chat()`'e geri verilir, bu yüzden takip soruları çalışır (denemede "ilk sorumda hangi belgeyi sormuştum?" sorusuna doğru cevap verdi).
 - `list_documents()` her belge için indekslemede otomatik üretilen `description` alanını da döndürür.
 - **Deneme:** `2023-annual-report-truncated.pdf` (50 sayfa) + `earthmover.pdf` (12 sayfa), Ollama `gpt-oss:20b-cloud`. İndeksleme 44 sn + 27 sn. "Her belge neyle ilgili?" sorusunda iki belgeyi de adıyla ayırıp doğru özetledi.
 - **Dikkat:** Ollama eşzamanlı çok isteği reddedebilir (`too many concurrent requests`); PageIndex otomatik yeniden dener, log'da `Retrying LLM completion` görünür. Belgeleri sırayla submit edin.
