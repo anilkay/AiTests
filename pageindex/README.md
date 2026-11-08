@@ -6,6 +6,7 @@
 |---|---|
 | [`PAGEINDEX_TEST_OZETI.md`](PAGEINDEX_TEST_OZETI.md) | Blog arşivi (341 yazı) üzerinde yapılan testler, nasıl çalıştığı ve vektör RAG ile 8 soruluk karşılaştırma |
 | [`ornek.py`](ornek.py) | Bir PDF'i indeksleyip soru soran küçük örnek |
+| [`coklu_ornek.py`](coklu_ornek.py) | Birden fazla PDF submit edip tek belgeye veya hepsine birden soru sorma |
 
 ## Örneği çalıştırma
 
@@ -39,6 +40,20 @@ python ornek.py belge.pdf
 - 3 Financial Stability  (s. 21-30)
 ...
 ```
+
+## Çoklu belge denemesi
+
+```bash
+python coklu_ornek.py a.pdf b.pdf c.pdf                 # indeksleme gpt-oss, cevap Claude Opus
+python coklu_ornek.py a.pdf b.pdf --model ollama        # tamamen yerel
+```
+
+- Her dosya için ayrı `submit_document()` çağrısı yapılır, her biri kendi `doc_id`'sini alır.
+- `chat(..., doc_id="...")` tek belgeye, `chat(..., doc_id=[id1, id2])` listedeki tüm belgelere sorar.
+- `list_documents()` her belge için indekslemede otomatik üretilen `description` alanını da döndürür.
+- **Deneme:** `2023-annual-report-truncated.pdf` (50 sayfa) + `earthmover.pdf` (12 sayfa), Ollama `gpt-oss:20b-cloud`. İndeksleme 44 sn + 27 sn. "Her belge neyle ilgili?" sorusunda iki belgeyi de adıyla ayırıp doğru özetledi.
+- **Dikkat:** Ollama eşzamanlı çok isteği reddedebilir (`too many concurrent requests`); PageIndex otomatik yeniden dener, log'da `Retrying LLM completion` görünür. Belgeleri sırayla submit edin.
+- **Ölçek:** Çoklu belge sorusunda model her belgenin iskeletini okur. Çok sayıda büyük belgede yavaşlar ve pahalılaşır.
 
 ## Kısa sonuç
 
