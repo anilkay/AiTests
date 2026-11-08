@@ -64,7 +64,8 @@ get_document_structure  part 1-4  → ~260 bin karakter  (iskeletin tamamı)
 get_page_content("165")           →   ~3 bin karakter  (tek sayfa metin)
 ```
 - Metinler dahil tüm belge ~1,14 milyon karakter. Model sadece **~3 bin karakterini** okudu.
-- Ama iskeletin **tamamını** okudu. Blog ağacı düz ve geniş (8 yıl × ~35 yazı) olduğu için model hangi dala gideceğine karar verebilmek için her şeye bakmak zorunda kalıyor.
+- Ama iskeletin **tamamını** okudu (252 bin karakter, **~57 bin token**; metinler dahil tüm blog ~326 bin token). `get_document_structure` aracının sadece `part` parametresi var: "şu dalı getir" ya da "sadece üst seviyeyi getir" denemiyor. İskelet blogdaki sırayla (2017 → 2024) parçalara bölünüp geliyor, model konunun hangi parçada olduğunu önceden bilemediği için bulana kadar sırayla okuyor.
+- **Her soruda değil:** Aynı sohbette ardışık 3 soru ölçüldü (gpt-oss): yeni konu → 4 parça (266 bin karakter); takip sorusu ("Peki VLAN değeri kaçmış?") → **hiç araç çağrısı yok**, 1 sn; başka yeni konu → 2 parça (137 bin karakter), model aradığını bulduğunu düşününce yarıda durdu. İskelet çağrıları konuşma geçmişine yazılmadığı için konu değişince yeniden okunuyor.
 
 ---
 
@@ -79,7 +80,7 @@ get_page_content("165")           →   ~3 bin karakter  (tek sayfa metin)
 - İndeksleme ucuz ve hızlı (bu blog için ~1 dk).
 
 ### ⚠️ Zayıf
-- **Her soru iskeletin tamamını okuyor** (bu blogda ~60–70 bin token). Belge büyüdükçe maliyet ve gecikme doğrusal artar. Asıl ölçeklenme sınırı bu.
+- **Yeni bir konuya geçen her soru iskeletin büyük kısmını (çoğu zaman tamamını) okuyor** (bu blogda ~57 bin token; gpt-oss'un 128 bin tokenlık penceresinin ~%45'i). Takip soruları okumuyor. Belge büyüdükçe maliyet ve gecikme doğrusal artar. Asıl ölçeklenme sınırı bu.
 - **Soru başına 5–20 sn.** Vektör araması 1 saniyenin altında.
 - **Görseller kayboluyor** (yerel modda). Ekran görüntüsündeki bilgi bulunamıyor.
 - Yerel `chat()` **sadece PDF** kabul ediyor. Markdown ağacıyla doğrudan soru-cevap yapılamıyor.
@@ -128,7 +129,7 @@ get_page_content("165")           →   ~3 bin karakter  (tek sayfa metin)
 | 8 | Docker yazıları (**liste**, 5 yazı) | ✅ 5/5 | ⚠️ 4/5 | ❌ 3/5 | ⚠️ 4/5 |
 | | **Tam doğru** | **8/8** | **6/8** | **2/8** | **5/8** |
 | | **Medyan süre** | 12,5 sn | 8 sn | 11 sn | 4,4 sn |
-| | **Modele giden bağlam** | ~250 bin+ karakter (iskelet) + sayfalar | ~6–8 bin karakter | ~250 bin+ karakter | ~6–8 bin karakter |
+| | **Modele giden bağlam** (yeni konulu soru) | ≤ ~250 bin karakter (~57 bin token) iskelet + sayfalar. *Opus için ölçülmedi, gpt-oss ölçümünden varsayım.* | ~6–8 bin karakter (~2 bin token) | ≤ ~250 bin karakter (~57 bin token) iskelet + sayfalar. Ölçüldü: 266 bin / 137 bin karakter (2 soru), takip sorusunda 0 | ~6–8 bin karakter (~2 bin token) |
 
 **Bulgular:**
 1. **Güçlü modelle (Opus) PageIndex kazandı.** Fark tamamen **liste sorularından** geliyor. Vektör RAG en yakın 6 parçayla sınırlı. Raspberry sorusunda 6 parçanın 3'ü aynı kitap incelemesinden geldi, bu yüzden 4 yazıyı hiç göremedi. PageIndex ise iskeletin tamamına baktığı için hepsini buldu. Tek bir yazıyı soran detay sorularında ikisi eşit.
@@ -171,6 +172,6 @@ cd ~/Documents/makeindex/blogtest && ../PageIndex/.venv/bin/python server.py
 1. ~~**Similarity RAG ile karşılaştırma**~~ ✅ Yapıldı (bkz. §6a). Sonraki adım: soru setini 20–30 soruya çıkarmak ve vektör tarafında farklı top-k değerlerini denemek.
 2. **Hibrit retrieval:** Soru tipine göre yönlendirme. Detay soruları vektör RAG'e (hızlı ve ucuz), liste ve kapsam soruları PageIndex'e. Ya da önce vektörle aday yazıları daraltıp sonra PageIndex ile akıl yürütmek.
 3. **Hibrit model:** İndeksleme gpt-oss (Ollama) ile, soru-cevap Claude Opus ile. PageIndex'te soru-cevap için küçük model kullanılmamalı (§6a).
-4. **Derin ağaç ve hiyerarşik özet:** Yıl ve ay düğümlerine alt yazılardan özet eklemek. Model önce 8 yılı görür, ilgili dalı açar. Her soruda ~250 bin karakter yerine birkaç bin karakter okur, maliyet ve gecikme ciddi düşer.
+4. **İskelet boyutunu küçültmek:** *(Önceki taslakta "derin ağaç yapıp model sadece ilgili dalı açsın" yazıyordu; bu hazır `get_document_structure` aracıyla çalışmıyor: araç dal seçtirmiyor, derin ağaçta da tüm düğümler parçalanıp gönderiliyor. Markdown ağacında da 420 düğümle iskelet 227 bin karakter, neredeyse aynı çıktı.)* Gerçekten işe yarayacaklar: özetleri kısaltmak (`summary_max_words`), vektör aramayla aday yazıları önceden daraltıp modele sadece onların iskeletini vermek, ya da `depth` / `node_id` parametreli kendi aracımızı yazmak (hazır `chat()` yerine kendi ajan döngümüz).
 5. **Markdown ağacı için soru-cevap katmanı:** PDF'e çevirmeden, kod blokları ve orijinal başlıklar korunarak.
 6. **Görseller:** Ekran görüntüsü içeren yazılar için bulut OCR ya da görsel okuyabilen bir model.
